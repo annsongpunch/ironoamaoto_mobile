@@ -60,17 +60,26 @@
     bottom: max(14px, env(safe-area-inset-bottom));
     transform: translateX(-50%);
     display: flex;
+    flex-direction: column;
     gap: 9px;
     align-items: center;
     background: rgba(255,255,255,0.78);
-    padding: 11px 12px;
-    border-radius: 999px;
+    padding: 11px 13px;
+    border-radius: 26px;
     backdrop-filter: blur(20px);
     border: 1px solid rgba(225,232,238,0.8);
     box-shadow: 0 18px 45px rgba(150,165,180,0.13);
     z-index: 10;
-    max-width: calc(100vw - 18px);
-    overflow-x: auto;
+    max-width: calc(100vw - 20px);
+  }
+
+  .note-row,
+  .control-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   button {
@@ -78,20 +87,20 @@
     background: rgba(255,255,255,0.78);
     color: #aeb5bd;
     border-radius: 999px;
-    padding: 9px 12px;
+    padding: 8px 11px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     white-space: nowrap;
   }
 
   .color {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
+    width: 35px;
+    height: 35px;
+    min-width: 35px;
     padding: 0;
     border-radius: 50%;
     color: rgba(255,255,255,0.94);
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 500;
     text-shadow: 0 1px 5px rgba(70,80,90,0.25);
   }
@@ -102,21 +111,54 @@
   }
 
   .volume {
-    width: 70px;
+    width: 78px;
     accent-color: #b8bdc4;
   }
 
-  @media (max-width: 700px) {
-    .title { font-size: 15px; left: 18px; }
-    .subtitle { left: 20px; }
-    .ui { gap: 7px; padding: 10px; }
-    button { font-size: 11px; padding: 8px 10px; }
-    .color {
-      width: 34px;
-      height: 34px;
-      min-width: 34px;
+  .volume-label {
+    font-size: 10px;
+    color: #b8bdc4;
+    letter-spacing: 0.04em;
+  }
+
+  @media (orientation: landscape) and (max-height: 600px) {
+    .ui {
+      flex-direction: row;
+      border-radius: 999px;
+      gap: 12px;
+      padding: 10px 14px;
     }
-    .volume { width: 58px; }
+
+    .note-row,
+    .control-row {
+      flex-wrap: nowrap;
+    }
+  }
+
+  @media (min-width: 900px) {
+    .ui {
+      flex-direction: row;
+      border-radius: 999px;
+      gap: 13px;
+      padding: 12px 16px;
+    }
+
+    .note-row,
+    .control-row {
+      flex-wrap: nowrap;
+    }
+
+    .color {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      font-size: 10px;
+    }
+
+    button {
+      font-size: 12px;
+      padding: 9px 13px;
+    }
   }
 </style>
 </head>
@@ -128,7 +170,10 @@
 <div class="title">イロノアマオト</div>
 <div class="subtitle">before the rainbow appears</div>
 
-<div class="ui" id="buttons"></div>
+<div class="ui">
+  <div class="note-row" id="noteButtons"></div>
+  <div class="control-row" id="controlButtons"></div>
+</div>
 
 <script>
 const canvas = document.getElementById("canvas");
@@ -170,7 +215,8 @@ let washPower = 0;
 
 const activePointers = new Map();
 
-const buttons = document.getElementById("buttons");
+const noteButtons = document.getElementById("noteButtons");
+const controlButtons = document.getElementById("controlButtons");
 
 notes.forEach(note => {
   const btn = document.createElement("button");
@@ -187,7 +233,7 @@ notes.forEach(note => {
     addRipple(w / 2, h / 2, note.color);
   };
 
-  buttons.appendChild(btn);
+  noteButtons.appendChild(btn);
   note.button = btn;
 });
 
@@ -198,7 +244,7 @@ randomBtn.onclick = () => {
   current = randomNote();
   updateSelected();
 };
-buttons.appendChild(randomBtn);
+controlButtons.appendChild(randomBtn);
 
 const chordBtn = document.createElement("button");
 chordBtn.textContent = "Chord";
@@ -207,7 +253,7 @@ chordBtn.onclick = () => {
   current = randomNote();
   updateSelected();
 };
-buttons.appendChild(chordBtn);
+controlButtons.appendChild(chordBtn);
 
 const clearBtn = document.createElement("button");
 clearBtn.textContent = "Clear";
@@ -216,7 +262,7 @@ clearBtn.onclick = () => {
   washPower = 1;
   stopAllSounds();
 };
-buttons.appendChild(clearBtn);
+controlButtons.appendChild(clearBtn);
 
 const fullBtn = document.createElement("button");
 fullBtn.textContent = "Full";
@@ -225,7 +271,12 @@ fullBtn.onclick = () => {
   if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen();
   else if (document.exitFullscreen) document.exitFullscreen();
 };
-buttons.appendChild(fullBtn);
+controlButtons.appendChild(fullBtn);
+
+const volumeLabel = document.createElement("span");
+volumeLabel.className = "volume-label";
+volumeLabel.textContent = "Vol";
+controlButtons.appendChild(volumeLabel);
 
 const volumeSlider = document.createElement("input");
 volumeSlider.className = "volume";
@@ -237,7 +288,7 @@ volumeSlider.value = volume;
 volumeSlider.oninput = e => {
   volume = Number(e.target.value);
 };
-buttons.appendChild(volumeSlider);
+controlButtons.appendChild(volumeSlider);
 
 function updateSelected() {
   notes.forEach(n => n.button.classList.remove("selected"));
@@ -324,6 +375,7 @@ function startPointerSound(pointerId, note) {
     : [note.freq];
 
   const vol = (mode === "chord" ? 0.026 : 0.085) * volume;
+
   const voices = freqs.map(freq => {
     const v = createSoftGlass(freq, vol);
     v.gain.gain.exponentialRampToValueAtTime(Math.max(vol, 0.0001), audioCtx.currentTime + 0.18);
@@ -583,7 +635,6 @@ function endPointer(e) {
   const data = activePointers.get(e.pointerId);
   if (!data) return;
 
-  // タップ1回は「ぽちゃん」感を強める
   if (!data.moved) {
     playTap(data.note);
   }
